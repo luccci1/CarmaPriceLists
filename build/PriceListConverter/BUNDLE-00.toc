@@ -1,0 +1,3 @@
+([('PriceListConverter',
+   '/Users/v/Documents/CarmaPriceLists/dist/PriceListConverter',
+   'EXECUTABLE')],)
