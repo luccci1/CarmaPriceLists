@@ -492,17 +492,30 @@ class PriceListConverter:
         output_df = pd.DataFrame(columns=output_columns)
         
         if self.bypass_template.get():
-            # Bypass template: use auto-detected columns or original column names
+            # Bypass template: use auto-detected columns or map by position
             if self.auto_detect_columns.get() and self.detected_columns:
                 # Use auto-detected mapping
                 config = self.detected_columns
                 self.log_message("Using auto-detected column mapping")
             else:
-                # Use original column names as-is (map to themselves)
+                # Map by column position (A, B, C, etc.)
                 config = {}
-                for col in df.columns:
-                    config[col] = col
-                self.log_message("Using original column names (bypassing template)")
+                for i, col in enumerate(df.columns):
+                    column_letter = chr(65 + i)  # A, B, C, etc.
+                    # Try to map to standard output columns based on position
+                    if i == 0:  # First column (A) - usually Article/Part Number
+                        config["Article"] = column_letter
+                    elif i == 1:  # Second column (B) - usually Brand
+                        config["Brand Name"] = column_letter
+                    elif i == 2:  # Third column (C) - usually Description (skip)
+                        continue
+                    elif i == 3:  # Fourth column (D) - usually Quantity
+                        config["Quantity"] = column_letter
+                    elif i == 4:  # Fifth column (E) - usually Price
+                        config["Price"] = column_letter
+                    elif i == 5:  # Sixth column (F) - usually MSRP or another price
+                        config["MSRP"] = column_letter
+                self.log_message("Using position-based column mapping (bypassing template)")
         
         # Map columns based on configuration (using column letters)
         for output_col in output_columns:
