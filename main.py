@@ -566,6 +566,32 @@ class PriceListConverter:
         if "Lead Time" in output_df.columns:
             output_df = output_df.drop("Lead Time", axis=1)
         
+        # Clean up the data
+        # Round numeric columns to 2 decimal places
+        numeric_columns = ['Quantity', 'MOQ', 'MSRP', 'Price']
+        for col in numeric_columns:
+            if col in output_df.columns:
+                # Convert to numeric, handling any non-numeric values
+                output_df[col] = pd.to_numeric(output_df[col], errors='coerce')
+                # Round to 2 decimal places
+                output_df[col] = output_df[col].round(2)
+                # Fill NaN values with empty string
+                output_df[col] = output_df[col].fillna('')
+                # Convert to string to ensure consistent formatting
+                output_df[col] = output_df[col].astype(str)
+                # Remove '.0' from whole numbers
+                output_df[col] = output_df[col].str.replace('.0', '', regex=False)
+        
+        # Clean up text columns - remove extra spaces
+        text_columns = ['Brand Name', 'Article']
+        for col in text_columns:
+            if col in output_df.columns:
+                output_df[col] = output_df[col].astype(str).str.strip()
+                # Replace multiple spaces with single space
+                output_df[col] = output_df[col].str.replace(r'\s+', ' ', regex=True)
+                # Replace 'nan' strings with empty value
+                output_df[col] = output_df[col].replace('nan', '')
+        
         # Remove rows with all empty values
         output_df = output_df.dropna(how='all')
         
@@ -604,7 +630,7 @@ class PriceListConverter:
             self.log_message(f"Created: {output_file}")
     
     def write_csv_with_lead_time(self, df, output_file, lead_time_value):
-        """Write CSV file with lead time in A1 cell and data starting from column B"""
+        """Write CSV file with lead time in A1 cell and data starting from column A"""
         with open(output_file, 'w', encoding='utf-8', newline='') as f:
             # Write lead time in A1 cell (first line, first column only)
             if lead_time_value:
@@ -612,12 +638,8 @@ class PriceListConverter:
             else:
                 f.write("\n")  # Empty A1 cell if no lead time specified
             
-            # Write data without headers, starting from column B
-            # Add empty first column to shift data to column B
-            df_with_empty_first_col = df.copy()
-            df_with_empty_first_col.insert(0, '', '')  # Add empty column with empty name
-            
-            df_with_empty_first_col.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
+            # Write data without headers, starting from column A (no empty column)
+            df.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
             
     def log_message(self, message):
         timestamp = pd.Timestamp.now().strftime("%H:%M:%S")
