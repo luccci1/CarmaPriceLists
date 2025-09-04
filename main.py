@@ -577,10 +577,10 @@ class PriceListConverter:
                 output_df[col] = output_df[col].round(2)
                 # Fill NaN values with empty string
                 output_df[col] = output_df[col].fillna('')
-                # Convert to string to ensure consistent formatting
-                output_df[col] = output_df[col].astype(str)
-                # Remove '.0' from whole numbers
-                output_df[col] = output_df[col].str.replace('.0', '', regex=False)
+                # Format as string with proper decimal places
+                output_df[col] = output_df[col].apply(lambda x: f"{x:.2f}" if pd.notna(x) and x != '' else '')
+                # Remove '.00' from whole numbers
+                output_df[col] = output_df[col].str.replace('.00', '', regex=False)
         
         # Clean up text columns - remove extra spaces
         text_columns = ['Brand Name', 'Article']
@@ -630,15 +630,9 @@ class PriceListConverter:
             self.log_message(f"Created: {output_file}")
     
     def write_csv_with_lead_time(self, df, output_file, lead_time_value):
-        """Write CSV file with lead time in A1 cell and data starting from column A"""
+        """Write CSV file with data starting from column A (no lead time)"""
         with open(output_file, 'w', encoding='utf-8', newline='') as f:
-            # Write lead time in A1 cell (first line, first column only)
-            if lead_time_value:
-                f.write(f"{lead_time_value}\n")
-            else:
-                f.write("\n")  # Empty A1 cell if no lead time specified
-            
-            # Write data without headers, starting from column A (no empty column)
+            # Write data without headers, starting from column A (no lead time, no empty column)
             df.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
             
     def log_message(self, message):
