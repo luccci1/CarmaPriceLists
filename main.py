@@ -25,8 +25,9 @@ class PriceListConverter:
         self.detected_columns = {}
         self.input_dataframe = None
         
-        self.setup_ui()
+        # Load config files before setting up UI so dropdown is populated
         self.load_config_files()
+        self.setup_ui()
         
     def detect_columns(self, df):
         """Automatically detect which columns match the required output columns"""
