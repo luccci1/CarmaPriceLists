@@ -32,35 +32,36 @@ class PriceListConverter:
         """Automatically detect which columns match the required output columns"""
         detected = {}
         
-        # Define patterns for each column type
+        # Define patterns for each column type (more comprehensive)
         patterns = {
             "Lead Time": [
                 r"lead\s*time", r"delivery\s*time", r"delivery", r"lead", r"time",
                 r"срок\s*поставки", r"время\s*доставки", r"поставка"
             ],
             "Brand Name": [
-                r"brand", r"manufacturer", r"maker", r"producer", r"company",
+                r"brand", r"manufacturer", r"maker", r"producer", r"company", r"mfg",
                 r"бренд", r"производитель", r"марка", r"фирма"
             ],
             "Article": [
-                r"article", r"part\s*number", r"sku", r"code", r"item\s*number",
-                r"артикул", r"номер\s*детали", r"код", r"товар"
+                r"article", r"part\s*number", r"part\s*no", r"sku", r"code", r"item\s*number",
+                r"product\s*code", r"model", r"артикул", r"номер\s*детали", r"код", r"товар"
             ],
             "Quantity": [
-                r"quantity", r"stock", r"qty", r"amount", r"count",
-                r"количество", r"запас", r"остаток", r"шт"
+                r"quantity", r"stock", r"qty", r"amount", r"count", r"available",
+                r"avl\s*qty", r"in\s*stock", r"количество", r"запас", r"остаток", r"шт"
             ],
             "MOQ": [
-                r"moq", r"minimum\s*order", r"min\s*order", r"min\s*qty",
+                r"moq", r"minimum\s*order", r"min\s*order", r"min\s*qty", r"min\s*quantity",
                 r"мин\s*заказ", r"минимальный\s*заказ", r"мин\s*количество"
             ],
             "MSRP": [
                 r"msrp", r"list\s*price", r"retail\s*price", r"rrp", r"price\s*list",
+                r"suggested\s*price", r"recommended\s*price", r"total\s*price",
                 r"розничная\s*цена", r"список\s*цен", r"рекомендуемая\s*цена"
             ],
             "Price": [
                 r"price", r"cost", r"sale\s*price", r"selling\s*price", r"unit\s*price",
-                r"цена", r"стоимость", r"продажная\s*цена"
+                r"unit\s*cost", r"wholesale\s*price", r"цена", r"стоимость", r"продажная\s*цена"
             ]
         }
         
@@ -80,7 +81,7 @@ class PriceListConverter:
                             best_score = similarity
                             best_match = df.columns[i]  # Use original column name
             
-            if best_match and best_score > 0.3:  # Minimum threshold
+            if best_match and best_score > 0.2:  # Lower threshold for better detection
                 detected[output_col] = best_match
                 
         return detected
@@ -492,30 +493,53 @@ class PriceListConverter:
         output_df = pd.DataFrame(columns=output_columns)
         
         if self.bypass_template.get():
-            # Bypass template: use auto-detected columns or map by position
+            # Bypass template: use auto-detected columns or intelligent mapping
             if self.auto_detect_columns.get() and self.detected_columns:
                 # Use auto-detected mapping
                 config = self.detected_columns
                 self.log_message("Using auto-detected column mapping")
             else:
-                # Map by column position (A, B, C, etc.)
+                # Intelligent mapping based on column content and position
                 config = {}
-                for i, col in enumerate(df.columns):
+                columns = [col.lower().strip() for col in df.columns]
+                
+                for i, col in enumerate(columns):
                     column_letter = chr(65 + i)  # A, B, C, etc.
-                    # Try to map to standard output columns based on position
-                    if i == 0:  # First column (A) - usually Article/Part Number
+                    
+                    # Smart mapping based on column name patterns
+                    if any(word in col for word in ['part', 'sku', 'code', 'article', 'item', 'product']):
                         config["Article"] = column_letter
-                    elif i == 1:  # Second column (B) - usually Brand
+                    elif any(word in col for word in ['brand', 'manufacturer', 'maker', 'mfg', 'company']):
                         config["Brand Name"] = column_letter
-                    elif i == 2:  # Third column (C) - usually Description (skip)
-                        continue
-                    elif i == 3:  # Fourth column (D) - usually Quantity
+                    elif any(word in col for word in ['quantity', 'stock', 'qty', 'amount', 'count', 'available']):
                         config["Quantity"] = column_letter
-                    elif i == 4:  # Fifth column (E) - usually Price
-                        config["Price"] = column_letter
-                    elif i == 5:  # Sixth column (F) - usually MSRP or another price
+                    elif any(word in col for word in ['moq', 'minimum', 'min']):
+                        config["MOQ"] = column_letter
+                    elif any(word in col for word in ['msrp', 'list', 'retail', 'recommended', 'suggested']):
                         config["MSRP"] = column_letter
-                self.log_message("Using position-based column mapping (bypassing template)")
+                    elif any(word in col for word in ['price', 'cost', 'unit', 'selling']):
+                        config["Price"] = column_letter
+                    elif any(word in col for word in ['lead', 'delivery', 'time']):
+                        config["Lead Time"] = column_letter
+                
+                # Fallback to position-based mapping if smart mapping didn't work
+                if not config:
+                    for i, col in enumerate(df.columns):
+                        column_letter = chr(65 + i)
+                        if i == 0:  # First column - usually Article/Part Number
+                            config["Article"] = column_letter
+                        elif i == 1:  # Second column - usually Brand
+                            config["Brand Name"] = column_letter
+                        elif i == 2:  # Third column - usually Description (skip)
+                            continue
+                        elif i == 3:  # Fourth column - usually Quantity
+                            config["Quantity"] = column_letter
+                        elif i == 4:  # Fifth column - usually Price
+                            config["Price"] = column_letter
+                        elif i == 5:  # Sixth column - usually MSRP or another price
+                            config["MSRP"] = column_letter
+                
+                self.log_message("Using intelligent column mapping (bypassing template)")
         
         # Map columns based on configuration (using column letters)
         for output_col in output_columns:
@@ -526,13 +550,15 @@ class PriceListConverter:
                     col_index = ord(column_letter) - ord('A')
                     if 0 <= col_index < len(df.columns):
                         output_df[output_col] = df.iloc[:, col_index]
+                        self.log_message(f"Mapped {output_col} → Column {column_letter} ({df.columns[col_index]})")
                     else:
-                        self.log_message(f"Warning: Column '{column_letter}' is out of range")
+                        self.log_message(f"Warning: Column '{column_letter}' is out of range (file has {len(df.columns)} columns)")
                         output_df[output_col] = ""
-                except:
-                    self.log_message(f"Warning: Invalid column letter '{column_letter}'")
+                except Exception as e:
+                    self.log_message(f"Warning: Invalid column letter '{column_letter}': {str(e)}")
                     output_df[output_col] = ""
             else:
+                self.log_message(f"Warning: No mapping found for '{output_col}'")
                 output_df[output_col] = ""
                 
         # Lead time is only in A1 cell, not in data rows
