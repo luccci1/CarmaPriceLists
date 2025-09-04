@@ -131,9 +131,9 @@ class PriceListConverter:
         
         # Supplier configuration selection
         ttk.Label(main_frame, text="Supplier Config:").grid(row=4, column=0, sticky=tk.W, pady=5)
-        config_combo = ttk.Combobox(main_frame, textvariable=self.supplier_config, state="readonly", width=47)
-        config_combo.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
-        config_combo['values'] = self.config_files
+        self.config_combo = ttk.Combobox(main_frame, textvariable=self.supplier_config, state="readonly", width=47)
+        self.config_combo.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
+        self.config_combo['values'] = self.config_files
         
         # Buttons
         button_frame = ttk.Frame(main_frame)
@@ -303,15 +303,8 @@ class PriceListConverter:
         messagebox.showinfo("Success", f"Configuration '{config_name}' saved successfully")
         self.load_config_files()
         # Update the combobox values
-        config_combo = None
-        for widget in self.root.winfo_children():
-            if isinstance(widget, ttk.Frame):
-                for child in widget.winfo_children():
-                    if isinstance(child, ttk.Combobox):
-                        config_combo = child
-                        break
-        if config_combo:
-            config_combo['values'] = self.config_files
+        if hasattr(self, 'config_combo'):
+            self.config_combo['values'] = self.config_files
         self.config_window.destroy()
         
     def edit_config_window(self):
@@ -385,15 +378,8 @@ class PriceListConverter:
         messagebox.showinfo("Success", f"Configuration '{self.supplier_config.get()}' updated successfully")
         self.load_config_files()
         # Update the combobox values
-        config_combo = None
-        for widget in self.root.winfo_children():
-            if isinstance(widget, ttk.Frame):
-                for child in widget.winfo_children():
-                    if isinstance(child, ttk.Combobox):
-                        config_combo = child
-                        break
-        if config_combo:
-            config_combo['values'] = self.config_files
+        if hasattr(self, 'config_combo'):
+            self.config_combo['values'] = self.config_files
         self.edit_window.destroy()
         
     def start_conversion(self):
