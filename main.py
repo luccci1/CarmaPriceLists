@@ -571,7 +571,7 @@ class PriceListConverter:
             # Write data without headers, starting from column B
             # Add empty first column to shift data to column B
             df_with_empty_first_col = df.copy()
-            df_with_empty_first_col.insert(0, 'empty_col', '')  # Add empty column with proper name
+            df_with_empty_first_col.insert(0, '', '')  # Add empty column with empty name
             
             df_with_empty_first_col.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
             
