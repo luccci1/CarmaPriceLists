@@ -230,11 +230,28 @@ class PriceListConverter:
             self.config_files = []
             
     def create_config_window(self):
-        self.config_window = tk.Toplevel(self.root)
-        self.config_window.title("Create New Configuration")
-        self.config_window.geometry("600x500")
-        
-        self.setup_config_ui()
+        try:
+            self.config_window = tk.Toplevel(self.root)
+            self.config_window.title("Create New Configuration")
+            self.config_window.geometry("600x500")
+            
+            # Make sure window is visible and on top
+            self.config_window.transient(self.root)
+            self.config_window.grab_set()
+            self.config_window.focus_set()
+            self.config_window.lift()
+            
+            # Center the window
+            self.config_window.update_idletasks()
+            x = (self.config_window.winfo_screenwidth() // 2) - (600 // 2)
+            y = (self.config_window.winfo_screenheight() // 2) - (500 // 2)
+            self.config_window.geometry(f"600x500+{x}+{y}")
+            
+            self.setup_config_ui()
+            self.log_message("Config creation window opened successfully")
+        except Exception as e:
+            self.log_message(f"Error opening config window: {str(e)}")
+            messagebox.showerror("Error", f"Failed to open config window: {str(e)}")
         
     def setup_config_ui(self):
         main_frame = ttk.Frame(self.config_window, padding="10")
@@ -313,11 +330,28 @@ class PriceListConverter:
             messagebox.showwarning("Warning", "Please select a configuration to edit")
             return
             
-        self.edit_window = tk.Toplevel(self.root)
-        self.edit_window.title(f"Edit Configuration: {self.supplier_config.get()}")
-        self.edit_window.geometry("600x500")
-        
-        self.setup_edit_ui()
+        try:
+            self.edit_window = tk.Toplevel(self.root)
+            self.edit_window.title(f"Edit Configuration: {self.supplier_config.get()}")
+            self.edit_window.geometry("600x500")
+            
+            # Make sure window is visible and on top
+            self.edit_window.transient(self.root)
+            self.edit_window.grab_set()
+            self.edit_window.focus_set()
+            self.edit_window.lift()
+            
+            # Center the window
+            self.edit_window.update_idletasks()
+            x = (self.edit_window.winfo_screenwidth() // 2) - (600 // 2)
+            y = (self.edit_window.winfo_screenheight() // 2) - (500 // 2)
+            self.edit_window.geometry(f"600x500+{x}+{y}")
+            
+            self.setup_edit_ui()
+            self.log_message("Config edit window opened successfully")
+        except Exception as e:
+            self.log_message(f"Error opening edit window: {str(e)}")
+            messagebox.showerror("Error", f"Failed to open edit window: {str(e)}")
         
     def setup_edit_ui(self):
         # Load existing configuration
