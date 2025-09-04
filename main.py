@@ -616,9 +616,15 @@ class PriceListConverter:
             self.log_message(f"Created: {output_file}")
     
     def write_csv_with_lead_time(self, df, output_file, lead_time_value):
-        """Write CSV file with data starting from column A (no lead time)"""
+        """Write CSV file with lead time in A1 and data starting from column A"""
         with open(output_file, 'w', encoding='utf-8', newline='') as f:
-            # Write data without headers, starting from column A (no lead time, no empty column)
+            # Write lead time in A1 cell (first line, first column only)
+            if lead_time_value:
+                f.write(f"{lead_time_value}\n")
+            else:
+                f.write("\n")  # Empty A1 cell if no lead time specified
+            
+            # Write data without headers, starting from column A
             df.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
             
     def log_message(self, message):
