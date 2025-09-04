@@ -474,7 +474,7 @@ class PriceListConverter:
             processed_data = self.process_dataframe(df, config)
             
             # Generate output
-            self.generate_output(processed_data)
+            self.generate_output(processed_data, self.input_file_path.get())
             
             self.log_message("Conversion completed successfully!")
             
@@ -533,11 +533,16 @@ class PriceListConverter:
         self.log_message(f"Processed {len(output_df)} rows")
         return output_df
         
-    def generate_output(self, df):
+    def generate_output(self, df, input_file_path):
         output_dir = Path(self.output_directory.get())
         
         # Get lead time value for A1 cell
         lead_time_value = self.lead_time.get()
+        
+        # Extract input filename without extension and create output filename
+        input_path = Path(input_file_path)
+        input_name = input_path.stem  # filename without extension
+        output_base_name = f"{input_name}_output"
         
         # Split into chunks if file is large (target ~80MB)
         chunk_size = 10000  # Adjust based on actual data size
@@ -551,11 +556,11 @@ class PriceListConverter:
                 end_idx = min((i + 1) * chunk_size, len(df))
                 chunk_df = df.iloc[start_idx:end_idx]
                 
-                output_file = output_dir / f"output_part_{i+1}.csv"
+                output_file = output_dir / f"{output_base_name}_part_{i+1}.csv"
                 self.write_csv_with_lead_time(chunk_df, output_file, lead_time_value)
                 self.log_message(f"Created: {output_file}")
         else:
-            output_file = output_dir / "output.csv"
+            output_file = output_dir / f"{output_base_name}.csv"
             self.write_csv_with_lead_time(df, output_file, lead_time_value)
             self.log_message(f"Created: {output_file}")
     
