@@ -143,7 +143,7 @@ class PriceListConverter:
         search_frame.columnconfigure(0, weight=1)
         
         self.config_search_var = tk.StringVar()
-        self.config_search_var.trace('w', self.filter_configs)
+        self.config_search_var.trace_add('write', self.filter_configs)
         search_entry = ttk.Entry(search_frame, textvariable=self.config_search_var, width=30)
         search_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 5))
         search_entry.insert(0, "Search configs...")
