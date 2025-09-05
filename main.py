@@ -154,9 +154,6 @@ class PriceListConverter:
         self.search_combo.bind('<KeyRelease>', self.on_search_key_release)
         self.search_combo.bind('<Button-1>', self.on_search_click)
         
-        # Set up autocomplete
-        self.setup_autocomplete()
-        
         ttk.Button(search_frame, text="Clear", command=self.clear_search, width=8).grid(row=0, column=1)
         
         # Config dropdown
@@ -164,6 +161,9 @@ class PriceListConverter:
         self.config_combo.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
         self.config_combo['values'] = self.config_files
         self.config_combo.bind('<<ComboboxSelected>>', lambda e: self.update_config_info())
+        
+        # Set up autocomplete after config_combo is created
+        self.setup_autocomplete()
         
         # Config info label
         self.config_info_label = ttk.Label(config_frame, text="", font=('TkDefaultFont', 8))
