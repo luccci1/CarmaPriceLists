@@ -144,11 +144,18 @@ class PriceListConverter:
         
         self.config_search_var = tk.StringVar()
         self.config_search_var.trace_add('write', self.filter_configs)
-        search_entry = ttk.Entry(search_frame, textvariable=self.config_search_var, width=30)
-        search_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 5))
-        search_entry.insert(0, "Search configs...")
-        search_entry.bind('<FocusIn>', self.clear_search_placeholder)
-        search_entry.bind('<FocusOut>', self.restore_search_placeholder)
+        
+        # Create autocomplete combobox for search
+        self.search_combo = ttk.Combobox(search_frame, textvariable=self.config_search_var, width=30, state="normal")
+        self.search_combo.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 5))
+        self.search_combo.insert(0, "Search configs...")
+        self.search_combo.bind('<FocusIn>', self.clear_search_placeholder)
+        self.search_combo.bind('<FocusOut>', self.restore_search_placeholder)
+        self.search_combo.bind('<KeyRelease>', self.on_search_key_release)
+        self.search_combo.bind('<Button-1>', self.on_search_click)
+        
+        # Set up autocomplete
+        self.setup_autocomplete()
         
         ttk.Button(search_frame, text="Clear", command=self.clear_search, width=8).grid(row=0, column=1)
         
@@ -281,8 +288,11 @@ class PriceListConverter:
             # Filter configs that contain the search term
             filtered_configs = [config for config in self.config_files if search_term in config.lower()]
         
-        # Update dropdown with filtered results
+        # Update main dropdown with filtered results
         self.config_combo['values'] = filtered_configs
+        
+        # Update search autocomplete with all configs
+        self.search_combo['values'] = self.config_files
         
         # Update info label
         if filtered_configs:
@@ -305,6 +315,47 @@ class PriceListConverter:
         """Clear search and show all configs"""
         self.config_search_var.set("")
         self.filter_configs()
+    
+    def setup_autocomplete(self):
+        """Set up autocomplete for search"""
+        self.search_combo['values'] = self.config_files
+        self.search_combo.bind('<<ComboboxSelected>>', self.on_search_selected)
+    
+    def on_search_key_release(self, event):
+        """Handle key release in search box"""
+        if event.keysym in ['BackSpace', 'Delete', 'Left', 'Right', 'Up', 'Down', 'Tab']:
+            return
+        
+        current_text = self.config_search_var.get()
+        if current_text and current_text != "Search configs...":
+            # Filter configs that start with current text
+            matching_configs = [config for config in self.config_files 
+                              if config.lower().startswith(current_text.lower())]
+            self.search_combo['values'] = matching_configs
+            
+            # Show dropdown if there are matches
+            if matching_configs:
+                self.search_combo.event_generate('<Button-1>')
+    
+    def on_search_click(self, event):
+        """Handle click on search box"""
+        current_text = self.config_search_var.get()
+        if current_text and current_text != "Search configs...":
+            # Show all configs that contain the current text
+            matching_configs = [config for config in self.config_files 
+                              if current_text.lower() in config.lower()]
+            self.search_combo['values'] = matching_configs
+    
+    def on_search_selected(self, event):
+        """Handle selection from search dropdown"""
+        selected_config = self.config_search_var.get()
+        if selected_config and selected_config in self.config_files:
+            # Update the main config dropdown
+            self.supplier_config.set(selected_config)
+            self.update_config_info()
+            # Clear search to show all configs
+            self.config_search_var.set("")
+            self.filter_configs()
     
     def update_config_info(self):
         """Update config info label with creation date"""
@@ -409,6 +460,7 @@ class PriceListConverter:
         # Update the combobox values and search
         if hasattr(self, 'config_combo'):
             self.config_combo['values'] = self.config_files
+            self.setup_autocomplete()
             self.filter_configs()
         self.config_window.destroy()
         
@@ -502,6 +554,7 @@ class PriceListConverter:
         # Update the combobox values and search
         if hasattr(self, 'config_combo'):
             self.config_combo['values'] = self.config_files
+            self.setup_autocomplete()
             self.filter_configs()
         self.edit_window.destroy()
         
