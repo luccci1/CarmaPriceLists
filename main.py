@@ -794,11 +794,17 @@ class PriceListConverter:
     def write_csv_with_lead_time(self, df, output_file, lead_time_value):
         """Write CSV file with lead time in A1 and data starting from column A"""
         with open(output_file, 'w', encoding='utf-8', newline='') as f:
-            # Write lead time in A1 cell (first line, first column only)
+            # Write lead time in A1 cell with proper CSV format
             if lead_time_value:
-                f.write(f"{lead_time_value}\n")
+                # Count the number of columns in the data to add proper semicolons
+                num_columns = len(df.columns)
+                # Create lead time row: lead_time + semicolons for remaining columns
+                lead_time_row = str(lead_time_value) + ';' * num_columns
+                f.write(f"{lead_time_row}\n")
             else:
-                f.write("\n")  # Empty A1 cell if no lead time specified
+                # Empty A1 cell with proper semicolons
+                num_columns = len(df.columns)
+                f.write(';' * num_columns + "\n")
             
             # Write data without headers, starting from column A
             df.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
