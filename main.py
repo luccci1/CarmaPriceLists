@@ -130,11 +130,37 @@ class PriceListConverter:
                        variable=self.bypass_template,
                        command=self.toggle_bypass_template).grid(row=1, column=0, sticky=tk.W, pady=2)
         
-        # Supplier configuration selection
-        ttk.Label(main_frame, text="Supplier Config:").grid(row=4, column=0, sticky=tk.W, pady=5)
-        self.config_combo = ttk.Combobox(main_frame, textvariable=self.supplier_config, state="readonly", width=47)
-        self.config_combo.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
+        # Supplier configuration selection with search
+        config_frame = ttk.Frame(main_frame)
+        config_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        config_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(config_frame, text="Supplier Config:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        
+        # Search frame
+        search_frame = ttk.Frame(config_frame)
+        search_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
+        search_frame.columnconfigure(0, weight=1)
+        
+        self.config_search_var = tk.StringVar()
+        self.config_search_var.trace('w', self.filter_configs)
+        search_entry = ttk.Entry(search_frame, textvariable=self.config_search_var, width=30)
+        search_entry.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 5))
+        search_entry.insert(0, "Search configs...")
+        search_entry.bind('<FocusIn>', self.clear_search_placeholder)
+        search_entry.bind('<FocusOut>', self.restore_search_placeholder)
+        
+        ttk.Button(search_frame, text="Clear", command=self.clear_search, width=8).grid(row=0, column=1)
+        
+        # Config dropdown
+        self.config_combo = ttk.Combobox(config_frame, textvariable=self.supplier_config, state="readonly", width=47)
+        self.config_combo.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
         self.config_combo['values'] = self.config_files
+        self.config_combo.bind('<<ComboboxSelected>>', lambda e: self.update_config_info())
+        
+        # Config info label
+        self.config_info_label = ttk.Label(config_frame, text="", font=('TkDefaultFont', 8))
+        self.config_info_label.grid(row=2, column=0, columnspan=2, sticky=tk.W, pady=(2, 0))
         
         # Buttons
         button_frame = ttk.Frame(main_frame)
@@ -226,8 +252,68 @@ class PriceListConverter:
         config_dir = Path("configs")
         if config_dir.exists():
             self.config_files = [f.stem for f in config_dir.glob("*.json")]
+            self.config_metadata = {}
+            for config_file in config_dir.glob("*.json"):
+                try:
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        config_data = json.load(f)
+                    # Get file creation time
+                    creation_time = config_file.stat().st_ctime
+                    creation_date = pd.Timestamp.fromtimestamp(creation_time).strftime("%Y-%m-%d %H:%M")
+                    self.config_metadata[config_file.stem] = {
+                        'creation_date': creation_date,
+                        'file_path': config_file
+                    }
+                except Exception as e:
+                    self.log_message(f"Error loading metadata for {config_file.stem}: {str(e)}")
         else:
             self.config_files = []
+            self.config_metadata = {}
+    
+    def filter_configs(self, *args):
+        """Filter configs based on search term"""
+        search_term = self.config_search_var.get().lower()
+        
+        if search_term == "search configs..." or not search_term:
+            # Show all configs
+            filtered_configs = self.config_files
+        else:
+            # Filter configs that contain the search term
+            filtered_configs = [config for config in self.config_files if search_term in config.lower()]
+        
+        # Update dropdown with filtered results
+        self.config_combo['values'] = filtered_configs
+        
+        # Update info label
+        if filtered_configs:
+            self.config_info_label.config(text=f"Found {len(filtered_configs)} config(s)")
+        else:
+            self.config_info_label.config(text="No configs found")
+    
+    def clear_search_placeholder(self, event):
+        """Clear search placeholder when focused"""
+        if self.config_search_var.get() == "Search configs...":
+            self.config_search_var.set("")
+    
+    def restore_search_placeholder(self, event):
+        """Restore search placeholder when not focused and empty"""
+        if not self.config_search_var.get():
+            self.config_search_var.set("Search configs...")
+            self.filter_configs()
+    
+    def clear_search(self):
+        """Clear search and show all configs"""
+        self.config_search_var.set("")
+        self.filter_configs()
+    
+    def update_config_info(self):
+        """Update config info label with creation date"""
+        selected_config = self.supplier_config.get()
+        if selected_config and selected_config in self.config_metadata:
+            creation_date = self.config_metadata[selected_config]['creation_date']
+            self.config_info_label.config(text=f"Created: {creation_date}")
+        else:
+            self.config_info_label.config(text="")
             
     def create_config_window(self):
         try:
@@ -320,9 +406,10 @@ class PriceListConverter:
             
         messagebox.showinfo("Success", f"Configuration '{config_name}' saved successfully")
         self.load_config_files()
-        # Update the combobox values
+        # Update the combobox values and search
         if hasattr(self, 'config_combo'):
             self.config_combo['values'] = self.config_files
+            self.filter_configs()
         self.config_window.destroy()
         
     def edit_config_window(self):
@@ -412,9 +499,10 @@ class PriceListConverter:
             
         messagebox.showinfo("Success", f"Configuration '{self.supplier_config.get()}' updated successfully")
         self.load_config_files()
-        # Update the combobox values
+        # Update the combobox values and search
         if hasattr(self, 'config_combo'):
             self.config_combo['values'] = self.config_files
+            self.filter_configs()
         self.edit_window.destroy()
         
     def start_conversion(self):
