@@ -143,7 +143,6 @@ class PriceListConverter:
         search_frame.columnconfigure(0, weight=1)
         
         self.config_search_var = tk.StringVar()
-        self.config_search_var.trace_add('write', self.filter_configs)
         
         # Create autocomplete combobox for search
         self.search_combo = ttk.Combobox(search_frame, textvariable=self.config_search_var, width=30, state="normal")
@@ -162,8 +161,9 @@ class PriceListConverter:
         self.config_combo['values'] = self.config_files
         self.config_combo.bind('<<ComboboxSelected>>', lambda e: self.update_config_info())
         
-        # Set up autocomplete after config_combo is created
+        # Set up autocomplete and trace after config_combo is created
         self.setup_autocomplete()
+        self.config_search_var.trace_add('write', self.filter_configs)
         
         # Config info label
         self.config_info_label = ttk.Label(config_frame, text="", font=('TkDefaultFont', 8))
