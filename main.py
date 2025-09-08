@@ -12,7 +12,7 @@ class PriceListConverter:
     def __init__(self, root):
         self.root = root
         self.root.title("Price List Converter")
-        self.root.geometry("800x600")
+        self.root.geometry("800x750")
         
         # Variables
         self.input_file_path = tk.StringVar()
@@ -100,6 +100,10 @@ class PriceListConverter:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
+        
+        # Configure rows for proper spacing
+        for i in range(11):  # We now have rows 0-10
+            main_frame.rowconfigure(i, weight=0)
         
         # Input file selection
         ttk.Label(main_frame, text="Input File:").grid(row=0, column=0, sticky=tk.W, pady=5)
@@ -199,15 +203,15 @@ class PriceListConverter:
         
         # Progress bar
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+        self.progress.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
         
         # Status label
         self.status_label = ttk.Label(main_frame, text="Ready to convert")
-        self.status_label.grid(row=7, column=0, columnspan=3, pady=5)
+        self.status_label.grid(row=9, column=0, columnspan=3, pady=5)
         
         # Log text area
         log_frame = ttk.LabelFrame(main_frame, text="Conversion Log", padding="5")
-        log_frame.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        log_frame.grid(row=10, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
@@ -219,7 +223,7 @@ class PriceListConverter:
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         
         # Configure main frame row weights
-        main_frame.rowconfigure(8, weight=1)
+        main_frame.rowconfigure(10, weight=1)
         
     def toggle_auto_detect(self):
         """Toggle auto-detection and update UI accordingly"""
