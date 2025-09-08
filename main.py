@@ -25,6 +25,10 @@ class PriceListConverter:
         self.detected_columns = {}
         self.input_dataframe = None
         
+        # New variables for currency and markup
+        self.currency_rate = tk.StringVar()
+        self.markup_percentage = tk.StringVar()
+        
         # Load config files before setting up UI so dropdown is populated
         self.load_config_files()
         self.setup_ui()
@@ -115,9 +119,25 @@ class PriceListConverter:
         ttk.Entry(lead_time_frame, textvariable=self.lead_time, width=20).pack(side=tk.LEFT)
         ttk.Label(lead_time_frame, text="(This value will be placed in A1 cell)").pack(side=tk.LEFT, padx=(10, 0))
         
+        # Currency Exchange Rate input
+        ttk.Label(main_frame, text="Currency Rate:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        currency_frame = ttk.Frame(main_frame)
+        currency_frame.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
+        
+        ttk.Entry(currency_frame, textvariable=self.currency_rate, width=20).pack(side=tk.LEFT)
+        ttk.Label(currency_frame, text="(e.g., 1.0543 - up to 4 decimal places)").pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Markup Percentage input
+        ttk.Label(main_frame, text="Markup %:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        markup_frame = ttk.Frame(main_frame)
+        markup_frame.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
+        
+        ttk.Entry(markup_frame, textvariable=self.markup_percentage, width=20).pack(side=tk.LEFT)
+        ttk.Label(markup_frame, text="(e.g., 15 for 15% markup)").pack(side=tk.LEFT, padx=(10, 0))
+        
         # Options frame
         options_frame = ttk.LabelFrame(main_frame, text="Conversion Options", padding="5")
-        options_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
+        options_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=10)
         options_frame.columnconfigure(1, weight=1)
         
         # Auto-detect columns option
@@ -132,7 +152,7 @@ class PriceListConverter:
         
         # Supplier configuration selection with search
         config_frame = ttk.Frame(main_frame)
-        config_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        config_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
         config_frame.columnconfigure(1, weight=1)
         
         ttk.Label(config_frame, text="Supplier Config:").grid(row=0, column=0, sticky=tk.W, pady=5)
@@ -171,7 +191,7 @@ class PriceListConverter:
         
         # Buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=5, column=0, columnspan=3, pady=20)
+        button_frame.grid(row=7, column=0, columnspan=3, pady=20)
         
         ttk.Button(button_frame, text="Convert", command=self.start_conversion, style="Accent.TButton").pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Create New Config", command=self.create_config_window).pack(side=tk.LEFT, padx=5)
@@ -756,6 +776,52 @@ class PriceListConverter:
         
         # Remove rows with all empty values
         output_df = output_df.dropna(how='all')
+        
+        # Apply currency conversion and markup in strict order
+        # Step 1: Currency conversion (if rate > 0)
+        currency_rate = self.currency_rate.get().strip()
+        if currency_rate and currency_rate != '':
+            try:
+                rate = float(currency_rate)
+                if rate > 0:
+                    self.log_message(f"Applying currency conversion with rate: {rate}")
+                    # Apply to MSRP and Price columns
+                    for col in ['MSRP', 'Price']:
+                        if col in output_df.columns:
+                            # Convert back to numeric for calculation
+                            numeric_values = pd.to_numeric(output_df[col], errors='coerce')
+                            # Apply currency conversion
+                            converted_values = numeric_values * rate
+                            # Round to 2 decimal places and format
+                            output_df[col] = converted_values.round(2).apply(lambda x: f"{x:.2f}" if pd.notna(x) and x != '' else '')
+                            # Remove '.00' from whole numbers
+                            output_df[col] = output_df[col].str.replace('.00', '', regex=False)
+                    self.log_message("Currency conversion completed")
+            except ValueError:
+                self.log_message(f"Warning: Invalid currency rate '{currency_rate}' - skipping currency conversion")
+        
+        # Step 2: Markup calculation (if percentage > 0)
+        markup_percentage = self.markup_percentage.get().strip()
+        if markup_percentage and markup_percentage != '':
+            try:
+                markup = float(markup_percentage)
+                if markup > 0:
+                    self.log_message(f"Applying markup of {markup}%")
+                    # Apply to MSRP and Price columns
+                    for col in ['MSRP', 'Price']:
+                        if col in output_df.columns:
+                            # Convert back to numeric for calculation
+                            numeric_values = pd.to_numeric(output_df[col], errors='coerce')
+                            # Apply markup: Price = Price * (1 + Markup/100)
+                            markup_multiplier = 1 + (markup / 100)
+                            marked_up_values = numeric_values * markup_multiplier
+                            # Round to 2 decimal places and format
+                            output_df[col] = marked_up_values.round(2).apply(lambda x: f"{x:.2f}" if pd.notna(x) and x != '' else '')
+                            # Remove '.00' from whole numbers
+                            output_df[col] = output_df[col].str.replace('.00', '', regex=False)
+                    self.log_message("Markup calculation completed")
+            except ValueError:
+                self.log_message(f"Warning: Invalid markup percentage '{markup_percentage}' - skipping markup calculation")
         
         self.log_message(f"Processed {len(output_df)} rows")
         return output_df
