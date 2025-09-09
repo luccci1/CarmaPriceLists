@@ -785,8 +785,10 @@ class PriceListConverter:
         # Step 1: Currency conversion (if rate > 0)
         currency_rate = self.currency_rate.get().strip()
         if currency_rate and currency_rate != '':
+            # Convert comma to dot for decimal separator
+            currency_rate_normalized = currency_rate.replace(',', '.')
             try:
-                rate = float(currency_rate)
+                rate = float(currency_rate_normalized)
                 if rate > 0:
                     self.log_message(f"Applying currency conversion with rate: {rate}")
                     # Apply to MSRP and Price columns
@@ -801,14 +803,18 @@ class PriceListConverter:
                             # Remove '.00' from whole numbers
                             output_df[col] = output_df[col].str.replace('.00', '', regex=False)
                     self.log_message("Currency conversion completed")
+                else:
+                    self.log_message(f"ERROR: Currency rate must be greater than 0 (entered: {currency_rate}) - skipping currency conversion")
             except ValueError:
-                self.log_message(f"Warning: Invalid currency rate '{currency_rate}' - skipping currency conversion")
+                self.log_message(f"ERROR: Invalid currency rate '{currency_rate}' - please use numbers only (e.g., 3.67 or 3,67) - skipping currency conversion")
         
         # Step 2: Markup calculation (if percentage > 0)
         markup_percentage = self.markup_percentage.get().strip()
         if markup_percentage and markup_percentage != '':
+            # Convert comma to dot for decimal separator
+            markup_percentage_normalized = markup_percentage.replace(',', '.')
             try:
-                markup = float(markup_percentage)
+                markup = float(markup_percentage_normalized)
                 if markup > 0:
                     self.log_message(f"Applying markup of {markup}%")
                     # Apply to MSRP and Price columns
@@ -824,8 +830,10 @@ class PriceListConverter:
                             # Remove '.00' from whole numbers
                             output_df[col] = output_df[col].str.replace('.00', '', regex=False)
                     self.log_message("Markup calculation completed")
+                else:
+                    self.log_message(f"ERROR: Markup percentage must be greater than 0 (entered: {markup_percentage}) - skipping markup calculation")
             except ValueError:
-                self.log_message(f"Warning: Invalid markup percentage '{markup_percentage}' - skipping markup calculation")
+                self.log_message(f"ERROR: Invalid markup percentage '{markup_percentage}' - please use numbers only (e.g., 15 or 15,5) - skipping markup calculation")
         
         self.log_message(f"Processed {len(output_df)} rows")
         return output_df
@@ -841,12 +849,34 @@ class PriceListConverter:
         input_name = input_path.stem  # filename without extension
         output_base_name = f"{input_name}_output"
         
-        # Split into chunks if file is large (target ~80MB)
-        chunk_size = 10000  # Adjust based on actual data size
+        # Split into chunks if file is large (80MB OR 1,000,000 rows)
+        max_rows = 1000000  # 1 million rows
+        max_size_mb = 80    # 80 MB
         
-        if len(df) > chunk_size:
+        # Check if we need to split
+        should_split = False
+        split_reason = ""
+        
+        if len(df) > max_rows:
+            should_split = True
+            split_reason = f"file has {len(df):,} rows (limit: {max_rows:,} rows)"
+        else:
+            # Estimate file size (rough calculation: ~100 bytes per row)
+            estimated_size_mb = (len(df) * 100) / (1024 * 1024)
+            if estimated_size_mb > max_size_mb:
+                should_split = True
+                split_reason = f"estimated size {estimated_size_mb:.1f}MB (limit: {max_size_mb}MB)"
+        
+        if should_split:
+            # Calculate chunk size based on the limiting factor
+            if len(df) > max_rows:
+                chunk_size = max_rows
+            else:
+                # Calculate rows for 80MB
+                chunk_size = int((max_size_mb * 1024 * 1024) / 100)
+            
             num_chunks = (len(df) + chunk_size - 1) // chunk_size
-            self.log_message(f"Splitting into {num_chunks} files...")
+            self.log_message(f"Splitting into {num_chunks} files ({split_reason})...")
             
             for i in range(num_chunks):
                 start_idx = i * chunk_size
@@ -855,11 +885,11 @@ class PriceListConverter:
                 
                 output_file = output_dir / f"{output_base_name}_part_{i+1}.csv"
                 self.write_csv_with_lead_time(chunk_df, output_file, lead_time_value)
-                self.log_message(f"Created: {output_file}")
+                self.log_message(f"Created: {output_file} ({len(chunk_df):,} rows)")
         else:
             output_file = output_dir / f"{output_base_name}.csv"
             self.write_csv_with_lead_time(df, output_file, lead_time_value)
-            self.log_message(f"Created: {output_file}")
+            self.log_message(f"Created: {output_file} ({len(df):,} rows)")
     
     def write_csv_with_lead_time(self, df, output_file, lead_time_value):
         """Write CSV file with lead time in A1 and data starting from column A"""
