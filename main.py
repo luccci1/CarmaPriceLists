@@ -29,9 +29,33 @@ class PriceListConverter:
         self.currency_rate = tk.StringVar()
         self.markup_percentage = tk.StringVar()
         
+        # Validation functions
+        self.validate_numeric = self.root.register(self.validate_numeric_input)
+        self.validate_lead_time = self.root.register(self.validate_lead_time_input)
+        
         # Load config files before setting up UI so dropdown is populated
         self.load_config_files()
         self.setup_ui()
+    
+    def validate_numeric_input(self, value):
+        """Validate numeric input (allows digits, comma, dot)"""
+        if value == "":
+            return True
+        # Allow digits, comma, and dot only
+        return all(c.isdigit() or c in ',.' for c in value)
+    
+    def validate_lead_time_input(self, value):
+        """Validate lead time input (only positive integers)"""
+        if value == "":
+            return True
+        # Only allow digits
+        if not value.isdigit():
+            return False
+        # Must be greater than 0
+        try:
+            return int(value) > 0
+        except ValueError:
+            return False
         
     def detect_columns(self, df):
         """Automatically detect which columns match the required output columns"""
@@ -120,24 +144,30 @@ class PriceListConverter:
         lead_time_frame = ttk.Frame(main_frame)
         lead_time_frame.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
         
-        ttk.Entry(lead_time_frame, textvariable=self.lead_time, width=20).pack(side=tk.LEFT)
-        ttk.Label(lead_time_frame, text="(This value will be placed in A1 cell)").pack(side=tk.LEFT, padx=(10, 0))
+        lead_time_entry = ttk.Entry(lead_time_frame, textvariable=self.lead_time, width=20, 
+                                   validate='key', validatecommand=(self.validate_lead_time, '%P'))
+        lead_time_entry.pack(side=tk.LEFT)
+        ttk.Label(lead_time_frame, text="(Required: positive integer)").pack(side=tk.LEFT, padx=(10, 0))
         
         # Currency Exchange Rate input
         ttk.Label(main_frame, text="Currency Rate:").grid(row=3, column=0, sticky=tk.W, pady=5)
         currency_frame = ttk.Frame(main_frame)
         currency_frame.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
         
-        ttk.Entry(currency_frame, textvariable=self.currency_rate, width=20).pack(side=tk.LEFT)
-        ttk.Label(currency_frame, text="(e.g., 1.0543 - up to 4 decimal places)").pack(side=tk.LEFT, padx=(10, 0))
+        currency_entry = ttk.Entry(currency_frame, textvariable=self.currency_rate, width=20,
+                                  validate='key', validatecommand=(self.validate_numeric, '%P'))
+        currency_entry.pack(side=tk.LEFT)
+        ttk.Label(currency_frame, text="(e.g., 1.0543 or 1,0543)").pack(side=tk.LEFT, padx=(10, 0))
         
         # Markup Percentage input
         ttk.Label(main_frame, text="Markup %:").grid(row=4, column=0, sticky=tk.W, pady=5)
         markup_frame = ttk.Frame(main_frame)
         markup_frame.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=(5, 0), pady=5)
         
-        ttk.Entry(markup_frame, textvariable=self.markup_percentage, width=20).pack(side=tk.LEFT)
-        ttk.Label(markup_frame, text="(e.g., 15 for 15% markup)").pack(side=tk.LEFT, padx=(10, 0))
+        markup_entry = ttk.Entry(markup_frame, textvariable=self.markup_percentage, width=20,
+                                validate='key', validatecommand=(self.validate_numeric, '%P'))
+        markup_entry.pack(side=tk.LEFT)
+        ttk.Label(markup_frame, text="(e.g., 15 or 15,5)").pack(side=tk.LEFT, padx=(10, 0))
         
         # Options frame
         options_frame = ttk.LabelFrame(main_frame, text="Conversion Options", padding="5")
@@ -469,6 +499,13 @@ class PriceListConverter:
         if len(config) < 3:  # At least 3 columns should be mapped
             messagebox.showerror("Error", "Please map at least 3 columns")
             return
+        
+        # Check for duplicate values
+        values = list(config.values())
+        if len(values) != len(set(values)):
+            duplicates = [v for v in set(values) if values.count(v) > 1]
+            messagebox.showerror("Error", f"Duplicate column mappings found: {', '.join(duplicates)}. All values must be different.")
+            return
             
         # Create configs directory if it doesn't exist
         config_dir = Path("configs")
@@ -567,6 +604,13 @@ class PriceListConverter:
         if len(config) < 3:
             messagebox.showerror("Error", "Please map at least 3 columns")
             return
+        
+        # Check for duplicate values
+        values = list(config.values())
+        if len(values) != len(set(values)):
+            duplicates = [v for v in set(values) if values.count(v) > 1]
+            messagebox.showerror("Error", f"Duplicate column mappings found: {', '.join(duplicates)}. All values must be different.")
+            return
             
         # Update configuration
         config_file = Path("configs") / f"{self.supplier_config.get()}.json"
@@ -589,6 +633,21 @@ class PriceListConverter:
             
         if not self.output_directory.get():
             messagebox.showerror("Error", "Please select an output directory")
+            return
+        
+        # Check Lead Time is required and valid
+        lead_time_value = self.lead_time.get().strip()
+        if not lead_time_value:
+            messagebox.showerror("Error", "Lead Time is required (positive integer)")
+            return
+        
+        try:
+            lead_time_int = int(lead_time_value)
+            if lead_time_int <= 0:
+                messagebox.showerror("Error", "Lead Time must be greater than 0")
+                return
+        except ValueError:
+            messagebox.showerror("Error", "Lead Time must be a positive integer")
             return
             
         # Check if we need a supplier config (only if not bypassing template)
@@ -894,17 +953,11 @@ class PriceListConverter:
     def write_csv_with_lead_time(self, df, output_file, lead_time_value):
         """Write CSV file with lead time in A1 and data starting from column A"""
         with open(output_file, 'w', encoding='utf-8', newline='') as f:
-            # Write lead time in A1 cell with proper CSV format
+            # Write lead time in A1 cell only
             if lead_time_value:
-                # Count the number of columns in the data to add proper semicolons
-                num_columns = len(df.columns)
-                # Create lead time row: lead_time + semicolons for remaining columns
-                lead_time_row = str(lead_time_value) + ';' * num_columns
-                f.write(f"{lead_time_row}\n")
+                f.write(f"{lead_time_value}\n")
             else:
-                # Empty A1 cell with proper semicolons
-                num_columns = len(df.columns)
-                f.write(';' * num_columns + "\n")
+                f.write("\n")
             
             # Write data without headers, starting from column A
             df.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
