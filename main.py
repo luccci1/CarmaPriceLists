@@ -957,13 +957,13 @@ class PriceListConverter:
             if lead_time_value:
                 # Count the number of columns in the data to add proper semicolons
                 num_columns = len(df.columns)
-                # Create lead time row: lead_time + semicolons for remaining columns
-                lead_time_row = str(lead_time_value) + ';' * num_columns
+                # Create lead time row: lead_time + semicolons for remaining columns (num_columns - 1)
+                lead_time_row = str(lead_time_value) + ';' * (num_columns - 1)
                 f.write(f"{lead_time_row}\n")
             else:
                 # Empty A1 cell with proper semicolons
                 num_columns = len(df.columns)
-                f.write(';' * num_columns + "\n")
+                f.write(';' * (num_columns - 1) + "\n")
             
             # Write data without headers, starting from column A
             df.to_csv(f, index=False, header=False, sep=';', encoding='utf-8')
